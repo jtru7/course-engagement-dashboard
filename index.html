@@ -1,0 +1,1546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Course Engagement Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #FBF7F0;
+    --bg-card: #FFFCF6;
+    --ink: #1A1815;
+    --ink-soft: #5C564E;
+    --ink-muted: #8C857A;
+    --rule: #E8E0D2;
+    --rule-soft: #F0E9DC;
+    --ochre: #B8862F;
+    --ochre-soft: #E9D6A8;
+    --teal: #3F6F6E;
+    --teal-soft: #C7DBDA;
+    --crimson: #A33D2D;
+    --crimson-soft: #EFCFC7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Geist', -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(184,134,47,0.04) 0%, transparent 40%),
+      radial-gradient(circle at 88% 92%, rgba(63,111,110,0.04) 0%, transparent 40%);
+  }
+
+  .shell {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+  }
+
+  /* ---------- Config banner ---------- */
+  .config-banner {
+    margin-bottom: 28px;
+    padding: 14px 18px;
+    background: var(--ochre-soft);
+    border: 1px solid var(--ochre);
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink);
+    line-height: 1.8;
+  }
+  .config-banner strong { color: var(--crimson); }
+
+  /* ---------- Header ---------- */
+  header.masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 0;
+  }
+
+  .title-block .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ochre);
+    margin-bottom: 8px;
+  }
+
+  .title-block h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 44px;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 96, "SOFT" 50;
+  }
+
+  .title-block h1 em {
+    font-style: italic;
+    color: var(--ochre);
+    font-variation-settings: "opsz" 96, "SOFT" 100;
+  }
+
+  .meta {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-muted);
+    line-height: 1.7;
+  }
+  .meta strong { color: var(--ink); font-weight: 500; }
+
+  /* ---------- Section bar ---------- */
+  .section-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 36px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .section-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .sb-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .section-select {
+    border: 1px solid var(--rule);
+    background: var(--bg-card);
+    padding: 8px 32px 8px 12px;
+    font-family: 'Fraunces', serif;
+    font-size: 17px;
+    font-variation-settings: "opsz" 24;
+    color: var(--ink);
+    border-radius: 3px;
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238C857A'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    transition: border-color 150ms;
+    max-width: 480px;
+  }
+  .section-select:focus { border-color: var(--ochre); }
+  .section-select:disabled { opacity: 0.5; cursor: default; }
+
+  .section-right {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* ---------- Buttons ---------- */
+  button.btn {
+    border: 1px solid var(--rule);
+    background: var(--bg-card);
+    padding: 7px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 150ms;
+    white-space: nowrap;
+  }
+  button.btn:hover:not(:disabled) { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+  button.btn:disabled { opacity: 0.35; cursor: default; }
+
+  button.btn-danger {
+    color: var(--crimson);
+    border-color: var(--crimson-soft);
+  }
+  button.btn-danger:hover:not(:disabled) {
+    background: var(--crimson);
+    border-color: var(--crimson);
+    color: white;
+  }
+
+  button.btn-primary {
+    background: var(--ochre);
+    border-color: var(--ochre);
+    color: white;
+  }
+  button.btn-primary:hover:not(:disabled) {
+    background: #9a7028;
+    border-color: #9a7028;
+    color: white;
+  }
+
+  /* ---------- Drop zones ---------- */
+  .ingest {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .dropzone {
+    background: var(--bg-card);
+    border: 1.5px dashed var(--rule);
+    border-radius: 4px;
+    padding: 24px 28px;
+    cursor: pointer;
+    transition: border-color 180ms, background 180ms, opacity 180ms;
+    position: relative;
+  }
+  .dropzone:hover:not(.disabled) { border-color: var(--ochre); }
+  .dropzone.drag { border-color: var(--ochre); background: #FFF5E0; border-style: solid; }
+  .dropzone.loaded { border-style: solid; border-color: var(--teal); background: #F2F8F7; }
+  .dropzone.disabled { opacity: 0.45; cursor: default; pointer-events: none; }
+
+  .dropzone .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-muted);
+    margin-bottom: 10px;
+  }
+  .dropzone .prompt {
+    font-family: 'Fraunces', serif;
+    font-size: 19px;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .dropzone .hint {
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .dropzone .summary {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--teal);
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+  .dropzone input[type=file] { display: none; }
+
+  /* ---------- KPI strip ---------- */
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 24px 0;
+    margin-bottom: 36px;
+  }
+  .kpi { padding: 0 24px; border-right: 1px solid var(--rule-soft); }
+  .kpi:last-child { border-right: none; }
+  .kpi .k-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-muted);
+    margin-bottom: 6px;
+  }
+  .kpi .k-value {
+    font-family: 'Fraunces', serif;
+    font-size: 38px;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-variation-settings: "opsz" 96;
+  }
+  .kpi .k-sub {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+
+  /* ---------- Main panel ---------- */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 32px;
+  }
+
+  section.panel {
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .panel-head {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .panel-head h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    font-variation-settings: "opsz" 48;
+  }
+  .panel-head .controls { display: flex; gap: 8px; align-items: center; }
+
+  input.search {
+    border: 1px solid var(--rule);
+    background: var(--bg);
+    padding: 7px 12px;
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    border-radius: 3px;
+    width: 200px;
+    outline: none;
+    transition: border-color 150ms;
+  }
+  input.search:focus { border-color: var(--ochre); }
+
+  /* ---------- Roster table ---------- */
+  table.roster {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  table.roster thead th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-muted);
+    font-weight: 500;
+    text-align: left;
+    padding: 10px 16px;
+    background: var(--rule-soft);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--rule);
+  }
+  table.roster thead th .arrow { color: var(--ochre); margin-left: 4px; font-size: 9px; opacity: 0; }
+  table.roster thead th.sort-asc .arrow,
+  table.roster thead th.sort-desc .arrow { opacity: 1; }
+  table.roster thead th.sort-desc .arrow::after { content: '\25BC'; }
+  table.roster thead th.sort-asc  .arrow::after { content: '\25B2'; }
+
+  table.roster tbody tr {
+    border-bottom: 1px solid var(--rule-soft);
+    transition: background 120ms;
+  }
+  table.roster tbody tr:hover { background: #FFF7E5; }
+  table.roster tbody tr.flag { background: rgba(163,61,45,0.04); }
+  table.roster tbody tr.flag:hover { background: rgba(163,61,45,0.08); }
+
+  table.roster td { padding: 12px 16px; vertical-align: middle; }
+  table.roster td.num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  table.roster td.name {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-variation-settings: "opsz" 24;
+    color: var(--ink);
+  }
+  table.roster td.name .login {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    margin-top: 1px;
+    letter-spacing: 0.02em;
+  }
+
+  .meter { display: flex; align-items: center; gap: 10px; }
+  .meter-bar {
+    flex: 1; height: 6px; background: var(--rule-soft);
+    border-radius: 0; overflow: hidden; position: relative; min-width: 70px;
+  }
+  .meter-fill { height: 100%; background: var(--teal); transition: width 400ms ease-out; }
+  .meter-fill.low { background: var(--crimson); }
+  .meter-fill.med { background: var(--ochre); }
+  .meter-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    min-width: 40px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .badge {
+    display: inline-block;
+    margin-left: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 2px;
+    vertical-align: middle;
+  }
+  .badge-risk  { background: var(--crimson-soft); color: var(--crimson); }
+  .badge-guest { background: var(--rule-soft); color: var(--ink-muted); }
+
+  /* ---------- Side panel ---------- */
+  .side { display: flex; flex-direction: column; gap: 24px; }
+  .side .panel-body { padding: 22px; }
+  .side h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-muted);
+    font-weight: 500;
+    margin-bottom: 14px;
+  }
+
+  .session-list { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .session-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dotted var(--rule);
+    color: var(--ink-soft);
+  }
+  .session-row:last-child { border-bottom: none; }
+  .session-row .when { color: var(--ink); }
+  .session-row .count { color: var(--ochre); font-variant-numeric: tabular-nums; }
+
+  .legend {
+    display: flex; gap: 14px;
+    font-size: 11.5px; color: var(--ink-soft);
+    margin-top: 12px; flex-wrap: wrap;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; font-family: 'JetBrains Mono', monospace; }
+  .legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .legend i.t { background: var(--teal); }
+  .legend i.o { background: var(--ochre); }
+  .legend i.c { background: var(--crimson); }
+
+  /* ---------- Empty state ---------- */
+  .empty {
+    text-align: center;
+    padding: 80px 32px;
+    color: var(--ink-soft);
+  }
+  .empty .e-mark {
+    font-family: 'Fraunces', serif;
+    font-size: 64px;
+    color: var(--ochre);
+    line-height: 1;
+    margin-bottom: 18px;
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .empty p {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    max-width: 440px;
+    margin: 0 auto 8px;
+    line-height: 1.4;
+  }
+  .empty p.sub {
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+  }
+
+  /* ---------- Loading overlay ---------- */
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(251,247,240,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+  }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--rule);
+    border-top-color: var(--ochre);
+    border-radius: 50%;
+    animation: spin 0.65s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26,24,21,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+  }
+  .modal {
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 32px;
+    width: 480px;
+    max-width: calc(100vw - 32px);
+  }
+  .modal h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 24px;
+    margin-bottom: 8px;
+    font-variation-settings: "opsz" 48;
+  }
+  .modal p {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .modal input[type=text] {
+    width: 100%;
+    border: 1px solid var(--rule);
+    background: var(--bg);
+    padding: 10px 14px;
+    font-family: 'Geist', sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    border-radius: 3px;
+    outline: none;
+    margin-bottom: 20px;
+    transition: border-color 150ms;
+  }
+  .modal input[type=text]:focus { border-color: var(--ochre); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* ---------- Toasts ---------- */
+  .toast-container {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    display: flex; flex-direction: column; gap: 8px;
+    z-index: 1002;
+  }
+  .toast {
+    padding: 12px 16px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    max-width: 360px;
+    border: 1px solid;
+    animation: slide-up 200ms ease-out;
+    line-height: 1.5;
+  }
+  .toast.success { background: #F2F8F7; color: var(--teal);   border-color: var(--teal-soft); }
+  .toast.error   { background: var(--crimson-soft); color: var(--crimson); border-color: var(--crimson); }
+  .toast.info    { background: var(--bg-card); color: var(--ink-soft); border-color: var(--rule); }
+  @keyframes slide-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ---------- Error message in dropzone ---------- */
+  .error-msg {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: var(--crimson-soft);
+    color: var(--crimson);
+    font-size: 12px;
+    border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ---------- Footer ---------- */
+  footer.foot {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    text-align: center;
+    letter-spacing: 0.06em;
+  }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 980px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .ingest { grid-template-columns: 1fr; }
+    .kpis { grid-template-columns: 1fr 1fr; row-gap: 24px; border-bottom: none; }
+    .kpi { border-right: none; padding: 0 12px; }
+    .title-block h1 { font-size: 32px; }
+    header.masthead { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .meta { text-align: left; }
+    .section-bar { flex-direction: column; align-items: flex-start; }
+    .section-select { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading-overlay hidden" id="loading-overlay">
+  <div class="spinner"></div>
+</div>
+
+<!-- New section modal -->
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="modal">
+    <h3>New section</h3>
+    <p>Give this section a name you'll recognise — course code, semester, whatever works.</p>
+    <input type="text" id="modal-name-input" placeholder="e.g. COMM 101 — Section 2 Fall 2026" maxlength="120" />
+    <div class="modal-actions">
+      <button class="btn" id="btn-modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="btn-modal-create">Create section</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notifications -->
+<div class="toast-container" id="toast-container"></div>
+
+<div class="shell">
+
+  <!-- Config banner: shown when SCRIPT_URL is not set -->
+  <div class="config-banner hidden" id="config-banner">
+    <strong>Setup required:</strong> open <code>index.html</code> and replace
+    <code>YOUR_APPS_SCRIPT_URL_HERE</code> near the top of the &lt;script&gt; block
+    with your deployed Google Apps Script URL. See <code>setup-guide.md</code> for instructions.
+  </div>
+
+  <header class="masthead">
+    <div class="title-block">
+      <div class="eyebrow">Course Engagement</div>
+      <h1>Attendance &amp; <em>Completion</em></h1>
+    </div>
+    <div class="meta" id="meta">
+      <div>No section selected</div>
+    </div>
+  </header>
+
+  <!-- Section management bar -->
+  <div class="section-bar">
+    <div class="section-left">
+      <span class="sb-label">Section</span>
+      <select id="section-select" class="section-select">
+        <option value="">— loading sections&#8230;</option>
+      </select>
+    </div>
+    <div class="section-right">
+      <button class="btn" id="btn-new-section">+ New section</button>
+      <button class="btn btn-danger" id="btn-reset-section" disabled>Reset data</button>
+      <button class="btn btn-danger" id="btn-delete-section" disabled>Delete section</button>
+    </div>
+  </div>
+
+  <!-- Ingest -->
+  <div class="ingest">
+    <label class="dropzone disabled" id="dz-teams">
+      <div class="label">01 — MS Teams Attendance</div>
+      <div class="prompt">Drop weekly reports</div>
+      <div class="hint">One file per session. Drop multiple to accumulate weeks. <strong>.csv</strong> exports from Teams.</div>
+      <div class="summary" id="summary-teams"></div>
+      <div class="error-msg hidden" id="err-teams"></div>
+      <input type="file" id="file-teams" accept=".csv" multiple />
+    </label>
+
+    <label class="dropzone disabled" id="dz-canvas">
+      <div class="label">02 — Canvas Gradebook</div>
+      <div class="prompt">Drop the latest grades export</div>
+      <div class="hint">Most recent only — Canvas exports are cumulative. <strong>.csv</strong> from Canvas LMS.</div>
+      <div class="summary" id="summary-canvas"></div>
+      <div class="error-msg hidden" id="err-canvas"></div>
+      <input type="file" id="file-canvas" accept=".csv" />
+    </label>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi"><div class="k-label">Roster</div><div class="k-value" id="kpi-roster">—</div><div class="k-sub">students</div></div>
+    <div class="kpi"><div class="k-label">Sessions held</div><div class="k-value" id="kpi-sessions">—</div><div class="k-sub" id="kpi-sessions-sub">total class hours</div></div>
+    <div class="kpi"><div class="k-label">Avg attendance</div><div class="k-value" id="kpi-attend">—</div><div class="k-sub">per session, per student</div></div>
+    <div class="kpi"><div class="k-label">Course completion</div><div class="k-value" id="kpi-complete">—</div><div class="k-sub" id="kpi-complete-sub">assignments done</div></div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="main-grid">
+
+    <section class="panel" id="roster-panel">
+      <div class="panel-head">
+        <h2>Roster</h2>
+        <div class="controls">
+          <input type="text" class="search" id="search" placeholder="Search by name…" />
+          <button class="btn" id="export-btn" disabled>Export CSV</button>
+        </div>
+      </div>
+      <div id="roster-body">
+        <div class="empty" id="empty-state">
+          <div class="e-mark">&para;</div>
+          <p>Select a section above, then drop your Teams and Canvas files to begin.</p>
+          <p class="sub">Files are parsed entirely in your browser. Only the resulting data is sent to Google Sheets.</p>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <div class="panel-body">
+          <h3>Completion distribution</h3>
+          <canvas id="chart" height="180"></canvas>
+          <div class="legend">
+            <span><i class="t"></i> &ge; 80%</span>
+            <span><i class="o"></i> 50–79%</span>
+            <span><i class="c"></i> &lt; 50%</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-body">
+          <h3>Sessions loaded</h3>
+          <div class="session-list" id="session-list">
+            <div style="color: var(--ink-muted); font-size: 12px;">— None yet —</div>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    Self-contained &middot; Client-side parsing &middot; Google Sheets backend &middot; Built for weekly review
+  </footer>
+</div>
+
+<script>
+/* =============================================================
+   CONFIG — paste your Apps Script Web App URL here
+   ============================================================= */
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyJdeXl0vcUG27YgT2pXghFLC4fE4NQdDvEWekBzuTj22T0FOGAFAUZP6130oroqv3u/exec';
+
+/* =============================================================
+   STATE
+   ============================================================= */
+const state = {
+  sections: [],
+  currentSectionId: null,
+  sessions: [],    // [{ id, filename, title, date, durationSec, participants:[...] }]
+  canvas: null,    // { students:[...], assignments:[] }
+  sortKey: 'name',
+  sortDir: 'asc',
+  search: ''
+};
+let chartInstance = null;
+
+/* =============================================================
+   API LAYER
+   ============================================================= */
+
+async function apiGet(params) {
+  const url = new URL(SCRIPT_URL);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const r = await fetch(url.toString());
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const data = await r.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+async function apiPost(body) {
+  // No Content-Type header intentionally — avoids CORS preflight on Apps Script
+  const r = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const data = await r.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+/* =============================================================
+   SECTION MANAGEMENT
+   ============================================================= */
+
+async function loadSections() {
+  const data = await apiGet({ action: 'getSections' });
+  state.sections = data.sections || [];
+  renderSectionSelect();
+  if (state.sections.length > 0) {
+    await switchSection(state.sections[0].id);
+  }
+}
+
+async function switchSection(sectionId) {
+  if (!sectionId) {
+    state.currentSectionId = null;
+    state.sessions = [];
+    state.canvas = null;
+    setDropzonesEnabled(false);
+    updateSectionButtons();
+    render();
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const data = await apiGet({ action: 'getSection', sectionId });
+    state.currentSectionId = sectionId;
+    state.sessions = data.sessions || [];
+
+    if (data.canvas && data.canvas.students && data.canvas.students.length > 0) {
+      const totalAssignments = data.canvas.students[0].totalAssignments || 0;
+      state.canvas = {
+        students: data.canvas.students,
+        assignments: new Array(totalAssignments).fill('assignment')
+      };
+    } else {
+      state.canvas = null;
+    }
+
+    setDropzonesEnabled(true);
+    updateDropzoneSummaries();
+    updateSectionButtons();
+    render();
+  } catch (err) {
+    toast('Failed to load section: ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function createNewSection(name) {
+  setLoading(true);
+  try {
+    const sec = await apiPost({ action: 'createSection', name });
+    state.sections.push(sec);
+    renderSectionSelect();
+    await switchSection(sec.id);
+    toast('Section "' + sec.name + '" created.', 'success');
+  } catch (err) {
+    toast('Could not create section: ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function resetCurrentSection() {
+  if (!state.currentSectionId) return;
+  const sec = state.sections.find(s => s.id === state.currentSectionId);
+  if (!confirm('Reset all data for "' + (sec ? sec.name : 'this section') + '"?\n\nAll uploaded sessions and Canvas data will be permanently deleted. The section itself will remain.')) return;
+  setLoading(true);
+  try {
+    await apiPost({ action: 'resetSection', sectionId: state.currentSectionId });
+    toast('Section data cleared.', 'info');
+    await switchSection(state.currentSectionId);
+  } catch (err) {
+    toast('Reset failed: ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function deleteCurrentSection() {
+  if (!state.currentSectionId) return;
+  const sec = state.sections.find(s => s.id === state.currentSectionId);
+  const name = sec ? sec.name : 'this section';
+  if (!confirm('Permanently delete "' + name + '"?\n\nAll sessions, attendance records, and Canvas data for this section will be deleted and cannot be recovered.')) return;
+  setLoading(true);
+  try {
+    await apiPost({ action: 'deleteSection', sectionId: state.currentSectionId });
+    state.sections = state.sections.filter(s => s.id !== state.currentSectionId);
+    state.currentSectionId = null;
+    state.sessions = [];
+    state.canvas = null;
+    renderSectionSelect();
+    setDropzonesEnabled(false);
+    updateSectionButtons();
+    resetDropzoneVisuals();
+    render();
+    toast('"' + name + '" deleted.', 'info');
+    if (state.sections.length > 0) await switchSection(state.sections[0].id);
+  } catch (err) {
+    toast('Delete failed: ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+/* =============================================================
+   PARSERS
+   ============================================================= */
+
+function parseDuration(str) {
+  if (!str) return 0;
+  let total = 0;
+  const h = str.match(/(\d+)\s*h/i); if (h) total += parseInt(h[1]) * 3600;
+  const m = str.match(/(\d+)\s*m(?!s)/i); if (m) total += parseInt(m[1]) * 60;
+  const s = str.match(/(\d+)\s*s/i); if (s) total += parseInt(s[1]);
+  return total;
+}
+
+function fmtDuration(sec) {
+  if (!sec) return '0m';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+
+function fmtDurationPrecise(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function canonicalizeAttendeeName(raw) {
+  let n = raw.replace(/\s*\(Unverified\)\s*$/i, '').trim();
+  if (n.includes(',')) return n;
+  const parts = n.split(/\s+/);
+  if (parts.length >= 2) {
+    const last = parts[parts.length - 1];
+    const rest = parts.slice(0, -1).join(' ');
+    return `${last}, ${rest}`;
+  }
+  return n;
+}
+
+async function parseTeams(file) {
+  const buf = await file.arrayBuffer();
+  const u8 = new Uint8Array(buf);
+  let text;
+  if (u8.length >= 2 && u8[0] === 0xFF && u8[1] === 0xFE) {
+    text = new TextDecoder('utf-16le').decode(buf);
+  } else if (u8.length >= 2 && u8[0] === 0xFE && u8[1] === 0xFF) {
+    text = new TextDecoder('utf-16be').decode(buf);
+  } else {
+    text = new TextDecoder('utf-8').decode(buf);
+  }
+  if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
+
+  const lines = text.split(/\r?\n/);
+  let meetingTitle = '', meetingDate = '', meetingDurationSec = 0;
+  let inParticipants = false, headerSeen = false, headerCols = [];
+  const participants = [];
+
+  for (const raw of lines) {
+    const line = raw.replace(/﻿/g, '');
+    const trimmed = line.trim();
+    if (trimmed.startsWith('Meeting title'))    { meetingTitle = (line.split('\t')[1] || '').trim(); continue; }
+    if (trimmed.startsWith('Start time'))       { const v = (line.split('\t')[1] || '').trim(); meetingDate = v.split(',')[0].trim(); continue; }
+    if (trimmed.startsWith('Meeting duration')) { meetingDurationSec = parseDuration((line.split('\t')[1] || '').trim()); continue; }
+    if (/^2\.\s*Participants/i.test(trimmed))   { inParticipants = true; headerSeen = false; continue; }
+    if (/^[134]\./.test(trimmed))               { inParticipants = false; continue; }
+    if (!inParticipants) continue;
+    if (!trimmed) { if (headerSeen) inParticipants = false; continue; }
+
+    const cols = line.split('\t').map(c => c.trim());
+    if (!headerSeen) { headerCols = cols; headerSeen = true; continue; }
+
+    const get = label => { const i = headerCols.findIndex(h => h.toLowerCase() === label.toLowerCase()); return i >= 0 ? (cols[i] || '') : ''; };
+    const name = get('Name');
+    if (!name) continue;
+    if (/fireflies|otter\.ai|notetaker bot/i.test(name)) continue;
+
+    const email = get('Email');
+    participants.push({
+      name: canonicalizeAttendeeName(name),
+      rawName: name.trim(),
+      email: email.trim(),
+      login: email ? email.split('@')[0].toLowerCase() : '',
+      durationSec: parseDuration(get('In-Meeting Duration'))
+    });
+  }
+
+  if (participants.length === 0) throw new Error('No participants found. Make sure this is a Teams attendance export with section "2. Participants".');
+
+  return {
+    filename: file.name,
+    title: meetingTitle || file.name,
+    date: meetingDate || '—',
+    durationSec: meetingDurationSec,
+    participants
+  };
+}
+
+function parseCanvas(text) {
+  const result = Papa.parse(text, { header: true, skipEmptyLines: true });
+  if (!result.meta || !result.meta.fields) throw new Error('Could not parse Canvas CSV.');
+  const fields = result.meta.fields;
+  const assignmentCols = fields.filter(f => /\(\d{4,}\)\s*$/.test(f));
+  if (assignmentCols.length === 0) throw new Error('No assignment columns detected. Canvas exports identify assignments with a trailing (ID) — none found.');
+
+  const students = [];
+  for (const row of result.data) {
+    const studentName = (row['Student'] || '').trim();
+    if (!studentName) continue;
+    if (/^points possible$/i.test(studentName)) continue;
+    if (/test student/i.test(studentName)) continue;
+
+    let completed = 0;
+    for (const c of assignmentCols) {
+      const sv = String(row[c] ?? '').trim();
+      if (sv === '' || /^\(read only\)$/i.test(sv)) continue;
+      if (!isNaN(parseFloat(sv))) completed++;
+    }
+    students.push({
+      name: studentName,
+      login: (row['SIS Login ID'] || '').toLowerCase().trim(),
+      sisId: (row['SIS User ID'] || '').trim(),
+      completedAssignments: completed,
+      totalAssignments: assignmentCols.length
+    });
+  }
+  return { students, assignments: assignmentCols };
+}
+
+/* =============================================================
+   HELPERS
+   ============================================================= */
+
+function completedCount(s) {
+  return Array.isArray(s.completedAssignments) ? s.completedAssignments.length : (Number(s.completedAssignments) || 0);
+}
+
+/* =============================================================
+   JOIN + AGGREGATE
+   ============================================================= */
+
+function buildRoster() {
+  const canvasByLogin = new Map();
+  const canvasByName  = new Map();
+  if (state.canvas) {
+    for (const s of state.canvas.students) {
+      if (s.login) canvasByLogin.set(s.login, s);
+      canvasByName.set(normalizeName(s.name), s);
+    }
+  }
+
+  const roster = new Map();
+
+  if (state.canvas) {
+    for (const s of state.canvas.students) {
+      const key = canonicalKey(s);
+      roster.set(key, {
+        key, name: s.name, login: s.login,
+        email: s.login ? `${s.login}@byui.edu` : '',
+        sessionsAttended: 0, totalAttendanceSec: 0, sessionDurations: [],
+        completedAssignments: completedCount(s),
+        totalAssignments: s.totalAssignments,
+        inCanvas: true
+      });
+    }
+  }
+
+  for (const session of state.sessions) {
+    for (const p of session.participants) {
+      let cs = null;
+      if (p.login && canvasByLogin.has(p.login)) cs = canvasByLogin.get(p.login);
+      else { const nk = normalizeName(p.name); if (canvasByName.has(nk)) cs = canvasByName.get(nk); }
+
+      const key = cs ? canonicalKey(cs) : `attendee:${normalizeName(p.name)}`;
+      let rec = roster.get(key);
+      if (!rec) {
+        rec = {
+          key, name: p.name, login: p.login, email: p.email,
+          sessionsAttended: 0, totalAttendanceSec: 0, sessionDurations: [],
+          completedAssignments: 0,
+          totalAssignments: state.canvas ? state.canvas.assignments.length : 0,
+          inCanvas: false
+        };
+        roster.set(key, rec);
+      }
+      if (p.durationSec >= 60) {
+        rec.sessionsAttended++;
+        rec.totalAttendanceSec += p.durationSec;
+        rec.sessionDurations.push(p.durationSec);
+      }
+    }
+  }
+
+  return Array.from(roster.values());
+}
+
+function canonicalKey(cs) { return cs.login || `name:${normalizeName(cs.name)}`; }
+function normalizeName(name) { return name.toLowerCase().replace(/\s+/g, ' ').replace(/[^a-z, ]/g, '').trim(); }
+
+/* =============================================================
+   RENDER
+   ============================================================= */
+
+function render() {
+  renderMeta();
+  renderKPIs();
+  renderSessionList();
+  renderRoster();
+  renderChart();
+}
+
+function renderSectionSelect() {
+  const sel = document.getElementById('section-select');
+  const prev = state.currentSectionId;
+  sel.innerHTML = state.sections.length === 0
+    ? '<option value="">— no sections yet —</option>'
+    : state.sections.map(s =>
+        `<option value="${escapeHtml(s.id)}" ${s.id === prev ? 'selected' : ''}>${escapeHtml(s.name)}</option>`
+      ).join('');
+}
+
+function updateSectionButtons() {
+  const hasSection = !!state.currentSectionId;
+  document.getElementById('btn-reset-section').disabled  = !hasSection;
+  document.getElementById('btn-delete-section').disabled = !hasSection;
+}
+
+function renderMeta() {
+  const el = document.getElementById('meta');
+  if (!state.currentSectionId) { el.innerHTML = '<div>No section selected</div>'; return; }
+  const sec = state.sections.find(s => s.id === state.currentSectionId);
+  const parts = [];
+  if (sec) parts.push(`<div><strong>${escapeHtml(sec.name)}</strong></div>`);
+  if (state.sessions.length > 0) {
+    const dates = state.sessions.map(s => s.date).filter(d => d && d !== '—').sort();
+    if (dates.length) parts.push(`<div>Period: <strong>${dates[0]}</strong> — <strong>${dates[dates.length - 1]}</strong></div>`);
+    parts.push(`<div>${state.sessions.length} session${state.sessions.length === 1 ? '' : 's'} loaded</div>`);
+  }
+  if (state.canvas) parts.push(`<div>${state.canvas.assignments.length} assignments tracked</div>`);
+  el.innerHTML = parts.join('');
+}
+
+function renderKPIs() {
+  const roster   = buildRoster();
+  const enrolled = state.canvas ? state.canvas.students.length : roster.length;
+  document.getElementById('kpi-roster').textContent = enrolled || '—';
+
+  const totalSessionSec = state.sessions.reduce((a, s) => a + (s.durationSec || 0), 0);
+  document.getElementById('kpi-sessions').textContent     = state.sessions.length || '—';
+  document.getElementById('kpi-sessions-sub').textContent = state.sessions.length
+    ? `${fmtDuration(totalSessionSec)} of class time` : 'total class hours';
+
+  const allDurations = roster.flatMap(r => r.sessionDurations);
+  const avgSec = allDurations.length ? Math.round(allDurations.reduce((a, b) => a + b, 0) / allDurations.length) : 0;
+  document.getElementById('kpi-attend').textContent = avgSec ? fmtDuration(avgSec) : '—';
+
+  if (state.canvas) {
+    const totalPossible = state.canvas.students.length * state.canvas.assignments.length;
+    const totalDone = state.canvas.students.reduce((a, s) => a + completedCount(s), 0);
+    const rate = totalPossible ? Math.round((totalDone / totalPossible) * 100) : 0;
+    document.getElementById('kpi-complete').textContent     = rate + '%';
+    document.getElementById('kpi-complete-sub').textContent = `${totalDone} of ${totalPossible} assignment slots`;
+  } else {
+    document.getElementById('kpi-complete').textContent     = '—';
+    document.getElementById('kpi-complete-sub').textContent = 'load Canvas to compute';
+  }
+}
+
+function renderSessionList() {
+  const el = document.getElementById('session-list');
+  if (state.sessions.length === 0) {
+    el.innerHTML = '<div style="color: var(--ink-muted); font-size: 12px;">— None yet —</div>';
+    return;
+  }
+  el.innerHTML = [...state.sessions].sort((a, b) => a.date > b.date ? 1 : -1).map(s => {
+    const attended = s.participants.filter(p => p.durationSec >= 60).length;
+    return `<div class="session-row"><span class="when">${escapeHtml(s.date)}</span><span class="count">${attended} attended &middot; ${fmtDuration(s.durationSec)}</span></div>`;
+  }).join('');
+}
+
+function renderRoster() {
+  const body = document.getElementById('roster-body');
+  const roster = buildRoster();
+
+  if (roster.length === 0) {
+    body.innerHTML = `<div class="empty"><div class="e-mark">&para;</div><p>Drop a Teams attendance report and a Canvas gradebook above to begin.</p><p class="sub">Files are parsed entirely in your browser.</p></div>`;
+    document.getElementById('export-btn').disabled = true;
+    return;
+  }
+
+  const q = state.search.toLowerCase().trim();
+  let rows = q ? roster.filter(r => r.name.toLowerCase().includes(q) || (r.login || '').includes(q)) : roster;
+
+  const dir = state.sortDir === 'asc' ? 1 : -1;
+  rows = [...rows].sort((a, b) => {
+    let av, bv;
+    switch (state.sortKey) {
+      case 'name':       av = a.name.toLowerCase(); bv = b.name.toLowerCase(); break;
+      case 'sessions':   av = a.sessionsAttended; bv = b.sessionsAttended; break;
+      case 'time':       av = a.totalAttendanceSec; bv = b.totalAttendanceSec; break;
+      case 'avg':        av = a.sessionDurations.length ? a.totalAttendanceSec / a.sessionDurations.length : 0; bv = b.sessionDurations.length ? b.totalAttendanceSec / b.sessionDurations.length : 0; break;
+      case 'completion': av = a.totalAssignments ? completedCount(a) / a.totalAssignments : 0; bv = b.totalAssignments ? completedCount(b) / b.totalAssignments : 0; break;
+      default:           av = a.name; bv = b.name;
+    }
+    return av < bv ? -1 * dir : av > bv ? 1 * dir : 0;
+  });
+
+  const sc = key => key === state.sortKey ? (state.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+
+  body.innerHTML = `
+    <table class="roster">
+      <thead><tr>
+        <th data-sort="name"       class="${sc('name')}">Student<span class="arrow"></span></th>
+        <th data-sort="sessions"   class="${sc('sessions')}">Sessions<span class="arrow"></span></th>
+        <th data-sort="time"       class="${sc('time')}">Total time<span class="arrow"></span></th>
+        <th data-sort="avg"        class="${sc('avg')}">Avg / session<span class="arrow"></span></th>
+        <th data-sort="completion" class="${sc('completion')}">Course completion<span class="arrow"></span></th>
+      </tr></thead>
+      <tbody>${rows.map(r => renderRow(r, state.sessions.length)).join('')}</tbody>
+    </table>`;
+  document.getElementById('export-btn').disabled = false;
+
+  body.querySelectorAll('th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      if (state.sortKey === th.dataset.sort) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      else { state.sortKey = th.dataset.sort; state.sortDir = th.dataset.sort === 'name' ? 'asc' : 'desc'; }
+      renderRoster();
+    });
+  });
+}
+
+function renderRow(r, totalSessions) {
+  const avgSec = r.sessionDurations.length ? Math.round(r.totalAttendanceSec / r.sessionDurations.length) : 0;
+  const done   = completedCount(r);
+  const pct    = r.totalAssignments ? Math.round((done / r.totalAssignments) * 100) : 0;
+  const fillClass = pct >= 80 ? '' : pct >= 50 ? 'med' : 'low';
+  const sessLabel = totalSessions > 0 ? `${r.sessionsAttended} / ${totalSessions}` : `${r.sessionsAttended}`;
+  const compLabel = r.totalAssignments ? `${done} / ${r.totalAssignments}` : '—';
+  const flagged = ((totalSessions > 0 && r.sessionsAttended / totalSessions < 0.5) || (r.totalAssignments > 0 && pct < 50)) && r.inCanvas;
+
+  return `
+    <tr class="${flagged ? 'flag' : ''}">
+      <td class="name">
+        ${escapeHtml(r.name)}
+        ${!r.inCanvas ? '<span class="badge badge-guest">Guest</span>' : ''}
+        ${flagged      ? '<span class="badge badge-risk">At risk</span>' : ''}
+        ${r.login ? `<span class="login">${escapeHtml(r.login)}</span>` : ''}
+      </td>
+      <td class="num">${sessLabel}</td>
+      <td class="num">${r.totalAttendanceSec > 0 ? fmtDurationPrecise(r.totalAttendanceSec) : '—'}</td>
+      <td class="num">${avgSec > 0 ? fmtDurationPrecise(avgSec) : '—'}</td>
+      <td>
+        <div class="meter">
+          <div class="meter-bar"><div class="meter-fill ${fillClass}" style="width:${pct}%"></div></div>
+          <div class="meter-text">${compLabel}</div>
+        </div>
+      </td>
+    </tr>`;
+}
+
+function renderChart() {
+  const ctx = document.getElementById('chart');
+  if (!ctx) return;
+  if (!state.canvas) {
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    ctx.style.opacity = 0.25;
+    return;
+  }
+  ctx.style.opacity = 1;
+
+  const buckets = { high: 0, mid: 0, low: 0 };
+  for (const r of buildRoster().filter(r => r.inCanvas)) {
+    const pct = r.totalAssignments ? (completedCount(r) / r.totalAssignments) * 100 : 0;
+    if (pct >= 80) buckets.high++;
+    else if (pct >= 50) buckets.mid++;
+    else buckets.low++;
+  }
+
+  if (chartInstance) chartInstance.destroy();
+  const cs = getComputedStyle(document.documentElement);
+  chartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['≥ 80%', '50–79%', '< 50%'],
+      datasets: [{
+        data: [buckets.high, buckets.mid, buckets.low],
+        backgroundColor: [cs.getPropertyValue('--teal').trim(), cs.getPropertyValue('--ochre').trim(), cs.getPropertyValue('--crimson').trim()],
+        borderColor: cs.getPropertyValue('--bg-card').trim(),
+        borderWidth: 3
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '64%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: cs.getPropertyValue('--ink').trim(),
+          titleFont: { family: 'JetBrains Mono', size: 11 },
+          bodyFont:  { family: 'JetBrains Mono', size: 12 },
+          padding: 10
+        }
+      }
+    }
+  });
+}
+
+/* =============================================================
+   FILE HANDLING
+   ============================================================= */
+
+function setupDropzone(zoneId, inputId, handler, multiple) {
+  const zone  = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  zone.addEventListener('click', e => { if (!zone.classList.contains('disabled') && e.target.tagName !== 'BUTTON') input.click(); });
+  zone.addEventListener('dragover',  e => { if (!zone.classList.contains('disabled')) { e.preventDefault(); zone.classList.add('drag'); } });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', async e => {
+    e.preventDefault(); zone.classList.remove('drag');
+    if (zone.classList.contains('disabled')) return;
+    const files = Array.from(e.dataTransfer.files);
+    for (const f of (multiple ? files : [files[0]])) { if (f) await handler(f); }
+  });
+  input.addEventListener('change', async () => {
+    for (const f of Array.from(input.files)) await handler(f);
+    input.value = '';
+  });
+}
+
+async function handleTeamsFile(file) {
+  if (!state.currentSectionId) return;
+  const errEl = document.getElementById('err-teams');
+  errEl.classList.add('hidden');
+  setLoading(true);
+  try {
+    const session = await parseTeams(file);
+    const result  = await apiPost({
+      action: 'addSession',
+      sectionId: state.currentSectionId,
+      session: {
+        filename: session.filename,
+        title: session.title,
+        date: session.date,
+        durationSec: session.durationSec,
+        participants: session.participants
+      }
+    });
+    if (result.duplicate) {
+      errEl.textContent = `"${file.name}" already loaded for this section — skipped.`;
+      errEl.classList.remove('hidden');
+    } else {
+      toast(`Session "${session.date}" added.`, 'success');
+      await switchSection(state.currentSectionId);
+    }
+  } catch (err) {
+    errEl.textContent = `${file.name}: ${err.message}`;
+    errEl.classList.remove('hidden');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function handleCanvasFile(file) {
+  if (!state.currentSectionId) return;
+  const errEl = document.getElementById('err-canvas');
+  errEl.classList.add('hidden');
+  setLoading(true);
+  try {
+    const text   = await file.text();
+    const canvas = parseCanvas(text);
+    await apiPost({
+      action: 'replaceCanvas',
+      sectionId: state.currentSectionId,
+      students: canvas.students.map(s => ({
+        name: s.name,
+        login: s.login,
+        completedAssignments: completedCount(s),
+        totalAssignments: s.totalAssignments
+      }))
+    });
+    toast(`Canvas data updated: ${canvas.students.length} students, ${canvas.assignments.length} assignments.`, 'success');
+    await switchSection(state.currentSectionId);
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function updateDropzoneSummaries() {
+  const teamsEl = document.getElementById('summary-teams');
+  const canvasEl = document.getElementById('summary-canvas');
+  const dzTeams  = document.getElementById('dz-teams');
+  const dzCanvas = document.getElementById('dz-canvas');
+
+  if (state.sessions.length > 0) {
+    const uniq = new Set();
+    state.sessions.forEach(s => s.participants.forEach(p => { if (p.durationSec >= 60) uniq.add(p.login || p.name.toLowerCase()); }));
+    teamsEl.textContent = `${state.sessions.length} session${state.sessions.length === 1 ? '' : 's'} · ${uniq.size} unique attendees`;
+    dzTeams.classList.add('loaded');
+  } else {
+    teamsEl.textContent = '';
+    dzTeams.classList.remove('loaded');
+  }
+
+  if (state.canvas) {
+    canvasEl.textContent = `${state.canvas.students.length} students · ${state.canvas.assignments.length} assignments tracked`;
+    dzCanvas.classList.add('loaded');
+  } else {
+    canvasEl.textContent = '';
+    dzCanvas.classList.remove('loaded');
+  }
+}
+
+/* =============================================================
+   EXPORT
+   ============================================================= */
+
+function exportCSV() {
+  const roster = buildRoster();
+  const total  = state.sessions.length;
+  const rows = [['Name','Login','Email','In Canvas Roster','Sessions Attended','Total Sessions','Total Attendance (min)','Avg per Session (min)','Assignments Completed','Total Assignments','Completion %']];
+  for (const r of roster) {
+    const avgSec = r.sessionDurations.length ? r.totalAttendanceSec / r.sessionDurations.length : 0;
+    const done   = completedCount(r);
+    const pct    = r.totalAssignments ? Math.round((done / r.totalAssignments) * 100) : '';
+    rows.push([r.name, r.login, r.email, r.inCanvas ? 'Yes' : 'No', r.sessionsAttended, total, Math.round(r.totalAttendanceSec / 60), Math.round(avgSec / 60), done, r.totalAssignments, pct]);
+  }
+  const csv  = rows.map(row => row.map(c => { const s = String(c ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  const sec = state.sections.find(s => s.id === state.currentSectionId);
+  a.download = `engagement-${sec ? sec.name.replace(/[^a-z0-9]/gi, '-') : 'export'}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* =============================================================
+   UI HELPERS
+   ============================================================= */
+
+function setLoading(on) {
+  document.getElementById('loading-overlay').classList.toggle('hidden', !on);
+  state.loading = on;
+}
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+function showModal() {
+  document.getElementById('modal-name-input').value = '';
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById('modal-name-input').focus(), 50);
+}
+
+function hideModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+function setDropzonesEnabled(enabled) {
+  document.getElementById('dz-teams').classList.toggle('disabled', !enabled);
+  document.getElementById('dz-canvas').classList.toggle('disabled', !enabled);
+}
+
+function resetDropzoneVisuals() {
+  document.getElementById('dz-teams').classList.remove('loaded');
+  document.getElementById('dz-canvas').classList.remove('loaded');
+  document.getElementById('summary-teams').textContent = '';
+  document.getElementById('summary-canvas').textContent = '';
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+/* =============================================================
+   INIT
+   ============================================================= */
+
+document.addEventListener('DOMContentLoaded', async () => {
+
+  // Check config
+  if (!SCRIPT_URL || SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
+    document.getElementById('config-banner').classList.remove('hidden');
+    document.getElementById('section-select').disabled = true;
+    document.getElementById('btn-new-section').disabled = true;
+    render();
+    return;
+  }
+
+  // Dropzones
+  setupDropzone('dz-teams',  'file-teams',  handleTeamsFile,  true);
+  setupDropzone('dz-canvas', 'file-canvas', handleCanvasFile, false);
+
+  // Section select
+  document.getElementById('section-select').addEventListener('change', e => {
+    if (e.target.value) switchSection(e.target.value);
+  });
+
+  // New section button + modal
+  document.getElementById('btn-new-section').addEventListener('click', showModal);
+  document.getElementById('btn-modal-cancel').addEventListener('click', hideModal);
+  document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target === document.getElementById('modal-overlay')) hideModal(); });
+  document.getElementById('btn-modal-create').addEventListener('click', () => {
+    const name = document.getElementById('modal-name-input').value.trim();
+    if (!name) { document.getElementById('modal-name-input').focus(); return; }
+    hideModal();
+    createNewSection(name);
+  });
+  document.getElementById('modal-name-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-modal-create').click();
+    if (e.key === 'Escape') hideModal();
+  });
+
+  // Reset / Delete
+  document.getElementById('btn-reset-section').addEventListener('click',  resetCurrentSection);
+  document.getElementById('btn-delete-section').addEventListener('click', deleteCurrentSection);
+
+  // Search
+  document.getElementById('search').addEventListener('input', e => { state.search = e.target.value; renderRoster(); });
+
+  // Export
+  document.getElementById('export-btn').addEventListener('click', exportCSV);
+
+  // Load sections from API
+  setLoading(true);
+  try {
+    await loadSections();
+  } catch (err) {
+    toast('Could not connect to Apps Script: ' + err.message, 'error');
+    render();
+  } finally {
+    setLoading(false);
+  }
+});
+</script>
+</body>
+</html>
