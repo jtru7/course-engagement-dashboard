@@ -47,6 +47,7 @@ function doPost(e) {
       case 'addSession':    result = addSession(body.sectionId, body.session); break;
       case 'replaceCanvas': result = replaceCanvas(body.sectionId, body.students); break;
       case 'resetSection':  result = resetSection(body.sectionId); break;
+      case 'canvasProxy':   result = canvasProxy(body.path, body.pat); break;
       default: result = { error: 'Unknown action: ' + body.action };
     }
   } catch (err) {
@@ -227,6 +228,36 @@ function addSession(sectionId, session) {
 // ============================================================
 // CANVAS
 // ============================================================
+
+// ============================================================
+// CANVAS PROXY — fetches Canvas API server-side (no CORS)
+// ============================================================
+
+function canvasProxy(path, pat) {
+  if (!path || !pat) throw new Error('path and pat required');
+  var CANVAS_BASE = 'https://byuird.instructure.com';
+  var results = [];
+  var url = CANVAS_BASE + path;
+  while (url) {
+    var response = UrlFetchApp.fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + pat },
+      muteHttpExceptions: true
+    });
+    var code = response.getResponseCode();
+    if (code === 401) throw new Error('Invalid Canvas API key — please update it.');
+    if (code !== 200) throw new Error('Canvas API error: HTTP ' + code);
+    var page = JSON.parse(response.getContentText());
+    results = results.concat(page);
+    var headers = response.getHeaders();
+    var linkHeader = '';
+    for (var h in headers) {
+      if (h.toLowerCase() === 'link') { linkHeader = String(headers[h]); break; }
+    }
+    var match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+    url = match ? match[1] : null;
+  }
+  return { data: results };
+}
 
 function replaceCanvas(sectionId, students) {
   if (!sectionId) throw new Error('sectionId required');

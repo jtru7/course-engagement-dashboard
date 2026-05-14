@@ -1030,18 +1030,8 @@ async function parseTeams(file) {
 async function canvasFetchAll(path) {
   const pat = getCanvasPAT();
   if (!pat) throw new Error('No Canvas API key set — click "API Key" to add one.');
-  let url = CANVAS_URL + path;
-  const results = [];
-  while (url) {
-    const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + pat } });
-    if (r.status === 401) throw new Error('Invalid Canvas API key — please update it.');
-    if (!r.ok) throw new Error('Canvas API error: HTTP ' + r.status);
-    results.push(...await r.json());
-    const link = r.headers.get('Link') || '';
-    const m = link.match(/<([^>]+)>;\s*rel="next"/);
-    url = m ? m[1] : null;
-  }
-  return results;
+  const result = await apiPost({ action: 'canvasProxy', path, pat });
+  return result.data;
 }
 
 async function syncCanvasData() {
