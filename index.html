@@ -1315,7 +1315,7 @@ function renderRow(r, totalSessions) {
   const done   = completedCount(r);
   const pct    = r.totalAssignments ? Math.round((done / r.totalAssignments) * 100) : 0;
   const fillClass = pct >= 80 ? '' : pct >= 50 ? 'med' : 'low';
-  const sessLabel = totalSessions > 0 ? `${r.sessionsAttended} / ${totalSessions}` : `${r.sessionsAttended}`;
+  const sessLabel = `${r.sessionsAttended}`;
   const compLabel = r.totalAssignments ? `${done} / ${r.totalAssignments}` : '—';
   const flagged = ((totalSessions > 0 && r.sessionsAttended / totalSessions < 0.5) || (r.totalAssignments > 0 && pct < 50)) && r.inCanvas;
 
