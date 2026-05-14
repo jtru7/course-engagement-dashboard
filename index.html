@@ -754,18 +754,6 @@
     <aside class="side">
       <section class="panel">
         <div class="panel-body">
-          <h3>Completion distribution</h3>
-          <canvas id="chart" height="180"></canvas>
-          <div class="legend">
-            <span><i class="t"></i> &ge; 80%</span>
-            <span><i class="o"></i> 50–79%</span>
-            <span><i class="c"></i> &lt; 50%</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-body">
           <h3>Sessions loaded</h3>
           <div class="session-list" id="session-list">
             <div style="color: var(--ink-muted); font-size: 12px;">— None yet —</div>
@@ -1317,15 +1305,11 @@ function renderRow(r, totalSessions) {
   const fillClass = pct >= 80 ? '' : pct >= 50 ? 'med' : 'low';
   const sessLabel = `${r.sessionsAttended}`;
   const compLabel = r.totalAssignments ? `${done} / ${r.totalAssignments}` : '—';
-  const flagged = ((totalSessions > 0 && r.sessionsAttended / totalSessions < 0.5) || (r.totalAssignments > 0 && pct < 50)) && r.inCanvas;
-
   return `
-    <tr class="${flagged ? 'flag' : ''}">
+    <tr>
       <td class="name">
         ${escapeHtml(r.name)}
         ${!r.inCanvas ? '<span class="badge badge-guest">Guest</span>' : ''}
-        ${flagged      ? '<span class="badge badge-risk">At risk</span>' : ''}
-        ${r.login ? `<span class="login">${escapeHtml(r.login)}</span>` : ''}
       </td>
       <td class="num">${sessLabel}</td>
       <td class="num">${r.totalAttendanceSec > 0 ? fmtDurationPrecise(r.totalAttendanceSec) : '—'}</td>
