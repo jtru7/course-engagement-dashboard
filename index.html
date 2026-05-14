@@ -857,6 +857,17 @@ async function switchSection(sectionId) {
     const data = await apiGet({ action: 'getSection', sectionId });
     state.currentSectionId = sectionId;
     state.sessions = data.sessions || [];
+    if (data.canvas) {
+      const pastDueCount = data.canvas.students.length ? data.canvas.students[0].totalAssignments : 0;
+      state.canvas = {
+        students: data.canvas.students.map(s => ({ ...s, activitySec: s.activitySec || 0 })),
+        pastDueCount,
+        totalCount: pastDueCount,
+        syncedAt: data.canvas.updatedAt
+      };
+    } else {
+      state.canvas = null;
+    }
 
     setDropzonesEnabled(true);
     updateIngestSummaries();
@@ -1042,7 +1053,7 @@ async function syncCanvasData() {
   try {
     const [assignments, enrollments, submissions] = await Promise.all([
       canvasFetchAll(`/api/v1/courses/${CANVAS_COURSE_ID}/assignments?per_page=100`),
-      canvasFetchAll(`/api/v1/courses/${CANVAS_COURSE_ID}/enrollments?type[]=StudentEnrollment&state[]=active&per_page=100`),
+      canvasFetchAll(`/api/v1/courses/${CANVAS_COURSE_ID}/enrollments?type[]=StudentEnrollment&state[]=active&include[]=total_activity_time&per_page=100`),
       canvasFetchAll(`/api/v1/courses/${CANVAS_COURSE_ID}/students/submissions?student_ids[]=all&per_page=100`)
     ]);
 
@@ -1065,8 +1076,20 @@ async function syncCanvasData() {
         login: (e.user.login_id || '').toLowerCase(),
         completedAssignments: [...pastDueIds].filter(id => submitted.has(id)).length,
         totalAssignments: pastDue.length,
-        totalCourseAssignments: assignments.length
+        totalCourseAssignments: assignments.length,
+        activitySec: Number(e.total_activity_time) || 0
       };
+    });
+
+    await apiPost({
+      action: 'replaceCanvas',
+      sectionId: state.currentSectionId,
+      students: students.map(s => ({
+        name: s.name, login: s.login,
+        completedAssignments: s.completedAssignments,
+        totalAssignments: s.totalAssignments,
+        activitySec: s.activitySec
+      }))
     });
 
     state.canvas = { students, pastDueCount: pastDue.length, totalCount: assignments.length, syncedAt: now };
@@ -1115,6 +1138,7 @@ function buildRoster() {
         sessionsAttended: 0, totalAttendanceSec: 0, sessionDurations: [],
         completedAssignments: completedCount(s),
         totalAssignments: s.totalAssignments,
+        activitySec: s.activitySec || 0,
         inCanvas: true
       });
     }
@@ -1255,6 +1279,7 @@ function renderRoster() {
       case 'time':       av = a.totalAttendanceSec; bv = b.totalAttendanceSec; break;
       case 'avg':        av = a.sessionDurations.length ? a.totalAttendanceSec / a.sessionDurations.length : 0; bv = b.sessionDurations.length ? b.totalAttendanceSec / b.sessionDurations.length : 0; break;
       case 'completion': av = a.totalAssignments ? completedCount(a) / a.totalAssignments : 0; bv = b.totalAssignments ? completedCount(b) / b.totalAssignments : 0; break;
+      case 'activity':   av = a.activitySec || 0; bv = b.activitySec || 0; break;
       default:           av = a.name; bv = b.name;
     }
     return av < bv ? -1 * dir : av > bv ? 1 * dir : 0;
@@ -1269,6 +1294,7 @@ function renderRoster() {
         <th data-sort="sessions"   class="${sc('sessions')}">Sessions<span class="arrow"></span></th>
         <th data-sort="time"       class="${sc('time')}">Total time<span class="arrow"></span></th>
         <th data-sort="avg"        class="${sc('avg')}">Avg / session<span class="arrow"></span></th>
+        <th data-sort="activity"   class="${sc('activity')}">Course activity<span class="arrow"></span></th>
         <th data-sort="completion" class="${sc('completion')}">Submitted (past due)<span class="arrow"></span></th>
       </tr></thead>
       <tbody>${rows.map(r => renderRow(r, state.sessions.length)).join('')}</tbody>
@@ -1304,6 +1330,7 @@ function renderRow(r, totalSessions) {
       <td class="num">${sessLabel}</td>
       <td class="num">${r.totalAttendanceSec > 0 ? fmtDurationPrecise(r.totalAttendanceSec) : '—'}</td>
       <td class="num">${avgSec > 0 ? fmtDurationPrecise(avgSec) : '—'}</td>
+      <td class="num">${r.activitySec > 0 ? fmtDurationPrecise(r.activitySec) : '—'}</td>
       <td>
         <div class="meter">
           <div class="meter-bar"><div class="meter-fill ${fillClass}" style="width:${pct}%"></div></div>
@@ -1324,7 +1351,8 @@ function renderChart() {
   ctx.style.opacity = 1;
 
   const buckets = { high: 0, mid: 0, low: 0 };
-  for (const r of buildRoster().filter(r => r.inCanvas)) {
+  const inCanvasStudents = buildRoster().filter(r => r.inCanvas);
+  for (const r of inCanvasStudents) {
     const pct = r.totalAssignments ? (completedCount(r) / r.totalAssignments) * 100 : 0;
     if (pct >= 80) buckets.high++;
     else if (pct >= 50) buckets.mid++;

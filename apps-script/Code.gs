@@ -8,7 +8,7 @@ var SHEETS = {
   sections:   { name: 'sections',   headers: ['id', 'name', 'created_at'] },
   sessions:   { name: 'sessions',   headers: ['id', 'section_id', 'filename', 'date', 'title', 'duration_sec'] },
   attendance: { name: 'attendance', headers: ['session_id', 'section_id', 'name', 'login', 'email', 'duration_sec'] },
-  canvas:     { name: 'canvas',     headers: ['section_id', 'student_name', 'login', 'completed', 'total', 'updated_at'] }
+  canvas:     { name: 'canvas',     headers: ['section_id', 'student_name', 'login', 'completed', 'total', 'activity_sec', 'updated_at'] }
 };
 
 // ============================================================
@@ -166,7 +166,8 @@ function getSectionData(sectionId) {
         return {
           name: c.student_name, login: c.login,
           completedAssignments: Number(c.completed),
-          totalAssignments: Number(c.total)
+          totalAssignments: Number(c.total),
+          activitySec: Number(c.activity_sec) || 0
         };
       }),
       updatedAt: canvasRows[0].updated_at
@@ -266,7 +267,7 @@ function replaceCanvas(sectionId, students) {
   appendBulk('canvas', (students || []).map(function(s) {
     return {
       section_id: sectionId, student_name: s.name, login: s.login,
-      completed: s.completedAssignments, total: s.totalAssignments, updated_at: now
+      completed: s.completedAssignments, total: s.totalAssignments, activity_sec: s.activitySec || 0, updated_at: now
     };
   }));
   return { ok: true, count: (students || []).length };
