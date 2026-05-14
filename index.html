@@ -247,6 +247,14 @@
   }
   .dropzone input[type=file] { display: none; }
 
+  .connect-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+  .connect-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
   /* ---------- KPI strip ---------- */
   .kpis {
     display: grid;
@@ -538,7 +546,8 @@
     margin-bottom: 20px;
     line-height: 1.5;
   }
-  .modal input[type=text] {
+  .modal input[type=text],
+  .modal input[type=password] {
     width: 100%;
     border: 1px solid var(--rule);
     background: var(--bg);
@@ -551,8 +560,10 @@
     margin-bottom: 20px;
     transition: border-color 150ms;
   }
-  .modal input[type=text]::placeholder { color: var(--ink-muted); }
-  .modal input[type=text]:focus { border-color: var(--blue); }
+  .modal input[type=text]::placeholder,
+  .modal input[type=password]::placeholder { color: var(--ink-muted); }
+  .modal input[type=text]:focus,
+  .modal input[type=password]:focus { border-color: var(--blue); }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
   /* ---------- Toasts ---------- */
@@ -621,6 +632,19 @@
   <div class="spinner"></div>
 </div>
 
+<!-- Canvas API key modal -->
+<div class="modal-overlay hidden" id="canvas-modal-overlay">
+  <div class="modal">
+    <h3>Canvas API Key</h3>
+    <p>Generate a Personal Access Token in Canvas: <strong>Account → Settings → Approved Integrations → New Access Token</strong>. Your token is saved in this browser only and never sent to any server.</p>
+    <input type="password" id="canvas-pat-input" placeholder="Paste your token here…" autocomplete="off" />
+    <div class="modal-actions">
+      <button class="btn" id="btn-canvas-modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="btn-canvas-modal-save">Save &amp; Connect</button>
+    </div>
+  </div>
+</div>
+
 <!-- New section modal -->
 <div class="modal-overlay hidden" id="modal-overlay">
   <div class="modal">
@@ -682,14 +706,21 @@
       <input type="file" id="file-teams" accept=".csv" multiple />
     </label>
 
-    <label class="dropzone disabled" id="dz-canvas">
+    <div class="dropzone disabled" id="dz-canvas">
       <div class="label">02 — Canvas Gradebook</div>
-      <div class="prompt">Drop the latest grades export</div>
-      <div class="hint">Most recent only — Canvas exports are cumulative. <strong>.csv</strong> from Canvas LMS.</div>
+      <div class="connect-row">
+        <div>
+          <div class="prompt" id="canvas-prompt">Connect Canvas API</div>
+          <div class="hint">Live submission data · past-due assignments only · no CSV needed.</div>
+        </div>
+        <div class="connect-actions">
+          <button class="btn" id="btn-canvas-token" type="button">API Key</button>
+          <button class="btn btn-primary" id="btn-canvas-sync" type="button" disabled>Sync</button>
+        </div>
+      </div>
       <div class="summary" id="summary-canvas"></div>
       <div class="error-msg hidden" id="err-canvas"></div>
-      <input type="file" id="file-canvas" accept=".csv" />
-    </label>
+    </div>
   </div>
 
   <!-- KPIs -->
@@ -754,6 +785,11 @@
    CONFIG — paste your Apps Script Web App URL here
    ============================================================= */
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyJdeXl0vcUG27YgT2pXghFLC4fE4NQdDvEWekBzuTj22T0FOGAFAUZP6130oroqv3u/exec';
+const CANVAS_URL = 'https://byuird.instructure.com';
+const CANVAS_COURSE_ID = '14957~895';
+
+function getCanvasPAT() { return localStorage.getItem('canvas_pat') || ''; }
+function saveCanvasPAT(t) { if (t) localStorage.setItem('canvas_pat', t); else localStorage.removeItem('canvas_pat'); }
 
 /* =============================================================
    STATE
@@ -822,18 +858,8 @@ async function switchSection(sectionId) {
     state.currentSectionId = sectionId;
     state.sessions = data.sessions || [];
 
-    if (data.canvas && data.canvas.students && data.canvas.students.length > 0) {
-      const totalAssignments = data.canvas.students[0].totalAssignments || 0;
-      state.canvas = {
-        students: data.canvas.students,
-        assignments: new Array(totalAssignments).fill('assignment')
-      };
-    } else {
-      state.canvas = null;
-    }
-
     setDropzonesEnabled(true);
-    updateDropzoneSummaries();
+    updateIngestSummaries();
     updateSectionButtons();
     render();
   } catch (err) {
@@ -1001,35 +1027,69 @@ async function parseTeams(file) {
   };
 }
 
-function parseCanvas(text) {
-  const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-  if (!result.meta || !result.meta.fields) throw new Error('Could not parse Canvas CSV.');
-  const fields = result.meta.fields;
-  const assignmentCols = fields.filter(f => /\(\d{4,}\)\s*$/.test(f));
-  if (assignmentCols.length === 0) throw new Error('No assignment columns detected. Canvas exports identify assignments with a trailing (ID) — none found.');
-
-  const students = [];
-  for (const row of result.data) {
-    const studentName = (row['Student'] || '').trim();
-    if (!studentName) continue;
-    if (/^points possible$/i.test(studentName)) continue;
-    if (/test student/i.test(studentName)) continue;
-
-    let completed = 0;
-    for (const c of assignmentCols) {
-      const sv = String(row[c] ?? '').trim();
-      if (sv === '' || /^\(read only\)$/i.test(sv)) continue;
-      if (!isNaN(parseFloat(sv))) completed++;
-    }
-    students.push({
-      name: studentName,
-      login: (row['SIS Login ID'] || '').toLowerCase().trim(),
-      sisId: (row['SIS User ID'] || '').trim(),
-      completedAssignments: completed,
-      totalAssignments: assignmentCols.length
-    });
+async function canvasFetchAll(path) {
+  const pat = getCanvasPAT();
+  if (!pat) throw new Error('No Canvas API key set — click "API Key" to add one.');
+  let url = CANVAS_URL + path;
+  const results = [];
+  while (url) {
+    const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + pat } });
+    if (r.status === 401) throw new Error('Invalid Canvas API key — please update it.');
+    if (!r.ok) throw new Error('Canvas API error: HTTP ' + r.status);
+    results.push(...await r.json());
+    const link = r.headers.get('Link') || '';
+    const m = link.match(/<([^>]+)>;\s*rel="next"/);
+    url = m ? m[1] : null;
   }
-  return { students, assignments: assignmentCols };
+  return results;
+}
+
+async function syncCanvasData() {
+  if (!state.currentSectionId) return;
+  const errEl = document.getElementById('err-canvas');
+  errEl.classList.add('hidden');
+  setLoading(true);
+  try {
+    const [assignments, enrollments, submissions] = await Promise.all([
+      canvasFetchAll(`/api/v1/courses/${CANVAS_COURSE_ID}/assignments?per_page=100`),
+      canvasFetchAll(`/api/v1/courses/${CANVAS_COURSE_ID}/enrollments?type[]=StudentEnrollment&state[]=active&per_page=100`),
+      canvasFetchAll(`/api/v1/courses/${CANVAS_COURSE_ID}/students/submissions?student_ids[]=all&per_page=100`)
+    ]);
+
+    const now = new Date();
+    const pastDue = assignments.filter(a => !a.due_at || new Date(a.due_at) <= now);
+    const pastDueIds = new Set(pastDue.map(a => a.id));
+
+    const submittedByUser = new Map();
+    for (const sub of submissions) {
+      if (sub.workflow_state !== 'unsubmitted') {
+        if (!submittedByUser.has(sub.user_id)) submittedByUser.set(sub.user_id, new Set());
+        submittedByUser.get(sub.user_id).add(sub.assignment_id);
+      }
+    }
+
+    const students = enrollments.map(e => {
+      const submitted = submittedByUser.get(e.user_id) || new Set();
+      return {
+        name: e.user.sortable_name || e.user.name,
+        login: (e.user.login_id || '').toLowerCase(),
+        completedAssignments: [...pastDueIds].filter(id => submitted.has(id)).length,
+        totalAssignments: pastDue.length,
+        totalCourseAssignments: assignments.length
+      };
+    });
+
+    state.canvas = { students, pastDueCount: pastDue.length, totalCount: assignments.length, syncedAt: now };
+    updateIngestSummaries();
+    render();
+    toast(`Synced: ${students.length} students · ${pastDue.length} of ${assignments.length} assignments past due.`, 'success');
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+    toast('Canvas sync failed: ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
 }
 
 /* =============================================================
@@ -1037,7 +1097,7 @@ function parseCanvas(text) {
    ============================================================= */
 
 function completedCount(s) {
-  return Array.isArray(s.completedAssignments) ? s.completedAssignments.length : (Number(s.completedAssignments) || 0);
+  return Number(s.completedAssignments) || 0;
 }
 
 /* =============================================================
@@ -1083,7 +1143,7 @@ function buildRoster() {
           key, name: p.name, login: p.login, email: p.email,
           sessionsAttended: 0, totalAttendanceSec: 0, sessionDurations: [],
           completedAssignments: 0,
-          totalAssignments: state.canvas ? state.canvas.assignments.length : 0,
+          totalAssignments: state.canvas ? state.canvas.pastDueCount : 0,
           inCanvas: false
         };
         roster.set(key, rec);
@@ -1141,7 +1201,7 @@ function renderMeta() {
     if (dates.length) parts.push(`<div>Period: <strong>${dates[0]}</strong> — <strong>${dates[dates.length - 1]}</strong></div>`);
     parts.push(`<div>${state.sessions.length} session${state.sessions.length === 1 ? '' : 's'} loaded</div>`);
   }
-  if (state.canvas) parts.push(`<div>${state.canvas.assignments.length} assignments tracked</div>`);
+  if (state.canvas) parts.push(`<div>${state.canvas.pastDueCount} of ${state.canvas.totalCount} assignments past due</div>`);
   el.innerHTML = parts.join('');
 }
 
@@ -1160,14 +1220,14 @@ function renderKPIs() {
   document.getElementById('kpi-attend').textContent = avgSec ? fmtDuration(avgSec) : '—';
 
   if (state.canvas) {
-    const totalPossible = state.canvas.students.length * state.canvas.assignments.length;
+    const totalPossible = state.canvas.students.length * state.canvas.pastDueCount;
     const totalDone = state.canvas.students.reduce((a, s) => a + completedCount(s), 0);
     const rate = totalPossible ? Math.round((totalDone / totalPossible) * 100) : 0;
     document.getElementById('kpi-complete').textContent     = rate + '%';
-    document.getElementById('kpi-complete-sub').textContent = `${totalDone} of ${totalPossible} assignment slots`;
+    document.getElementById('kpi-complete-sub').textContent = `${totalDone} of ${totalPossible} past-due slots`;
   } else {
     document.getElementById('kpi-complete').textContent     = '—';
-    document.getElementById('kpi-complete-sub').textContent = 'load Canvas to compute';
+    document.getElementById('kpi-complete-sub').textContent = 'sync Canvas to compute';
   }
 }
 
@@ -1219,7 +1279,7 @@ function renderRoster() {
         <th data-sort="sessions"   class="${sc('sessions')}">Sessions<span class="arrow"></span></th>
         <th data-sort="time"       class="${sc('time')}">Total time<span class="arrow"></span></th>
         <th data-sort="avg"        class="${sc('avg')}">Avg / session<span class="arrow"></span></th>
-        <th data-sort="completion" class="${sc('completion')}">Course completion<span class="arrow"></span></th>
+        <th data-sort="completion" class="${sc('completion')}">Submitted (past due)<span class="arrow"></span></th>
       </tr></thead>
       <tbody>${rows.map(r => renderRow(r, state.sessions.length)).join('')}</tbody>
     </table>`;
@@ -1392,8 +1452,8 @@ async function handleCanvasFile(file) {
   }
 }
 
-function updateDropzoneSummaries() {
-  const teamsEl = document.getElementById('summary-teams');
+function updateIngestSummaries() {
+  const teamsEl  = document.getElementById('summary-teams');
   const canvasEl = document.getElementById('summary-canvas');
   const dzTeams  = document.getElementById('dz-teams');
   const dzCanvas = document.getElementById('dz-canvas');
@@ -1409,11 +1469,15 @@ function updateDropzoneSummaries() {
   }
 
   if (state.canvas) {
-    canvasEl.textContent = `${state.canvas.students.length} students · ${state.canvas.assignments.length} assignments tracked`;
+    const t = state.canvas.syncedAt;
+    const when = t ? t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    canvasEl.textContent = `${state.canvas.students.length} students · ${state.canvas.pastDueCount} / ${state.canvas.totalCount} assignments past due${when ? ' · synced ' + when : ''}`;
     dzCanvas.classList.add('loaded');
+    document.getElementById('canvas-prompt').textContent = 'Canvas connected';
   } else {
     canvasEl.textContent = '';
     dzCanvas.classList.remove('loaded');
+    document.getElementById('canvas-prompt').textContent = 'Connect Canvas API';
   }
 }
 
@@ -1472,6 +1536,7 @@ function hideModal() {
 function setDropzonesEnabled(enabled) {
   document.getElementById('dz-teams').classList.toggle('disabled', !enabled);
   document.getElementById('dz-canvas').classList.toggle('disabled', !enabled);
+  document.getElementById('btn-canvas-sync').disabled = !enabled || !getCanvasPAT();
 }
 
 function resetDropzoneVisuals() {
@@ -1479,6 +1544,7 @@ function resetDropzoneVisuals() {
   document.getElementById('dz-canvas').classList.remove('loaded');
   document.getElementById('summary-teams').textContent = '';
   document.getElementById('summary-canvas').textContent = '';
+  document.getElementById('canvas-prompt').textContent = getCanvasPAT() ? 'Connect Canvas API' : 'Connect Canvas API';
 }
 
 function escapeHtml(s) {
@@ -1500,9 +1566,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // Dropzones
-  setupDropzone('dz-teams',  'file-teams',  handleTeamsFile,  true);
-  setupDropzone('dz-canvas', 'file-canvas', handleCanvasFile, false);
+  // Teams dropzone
+  setupDropzone('dz-teams', 'file-teams', handleTeamsFile, true);
+
+  // Canvas API key modal
+  document.getElementById('btn-canvas-token').addEventListener('click', e => {
+    e.stopPropagation();
+    document.getElementById('canvas-pat-input').value = getCanvasPAT();
+    document.getElementById('canvas-modal-overlay').classList.remove('hidden');
+    setTimeout(() => document.getElementById('canvas-pat-input').focus(), 50);
+  });
+  document.getElementById('btn-canvas-modal-cancel').addEventListener('click', () => {
+    document.getElementById('canvas-modal-overlay').classList.add('hidden');
+  });
+  document.getElementById('canvas-modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('canvas-modal-overlay'))
+      document.getElementById('canvas-modal-overlay').classList.add('hidden');
+  });
+  document.getElementById('btn-canvas-modal-save').addEventListener('click', () => {
+    const val = document.getElementById('canvas-pat-input').value.trim();
+    saveCanvasPAT(val);
+    document.getElementById('canvas-modal-overlay').classList.add('hidden');
+    document.getElementById('btn-canvas-sync').disabled = !val || !state.currentSectionId;
+    toast(val ? 'API key saved. Click Sync to load Canvas data.' : 'API key cleared.', 'info');
+  });
+  document.getElementById('canvas-pat-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-canvas-modal-save').click();
+    if (e.key === 'Escape') document.getElementById('canvas-modal-overlay').classList.add('hidden');
+  });
+
+  // Canvas sync button
+  document.getElementById('btn-canvas-sync').addEventListener('click', e => {
+    e.stopPropagation();
+    syncCanvasData();
+  });
+
+  // Enable sync button if PAT already exists
+  if (getCanvasPAT()) document.getElementById('btn-canvas-sync').disabled = true; // re-enabled by setDropzonesEnabled after section loads
 
   // Section select
   document.getElementById('section-select').addEventListener('change', e => {
